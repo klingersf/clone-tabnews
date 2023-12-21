@@ -1,48 +1,63 @@
+import db from "infra/dbase.js";
+import database from "infra/database.js";
+
+//const client = db.clientDb;
+
 async function databaseVersion() {
-    const version: QueryResult = <{ Variable_name: string; Value: string }[]>(
-        await prisma.$queryRaw`SHOW VARIABLES LIKE '%version%';`
-    );
+  const clientdb = await db.clientDb();
+  try {
+    const result = await clientdb.query(`SHOW server_version;`);
+    console.log(result.rows[0].server_version);
 
-    //const version = "8.0.31";
-    //return await version[8].Value;
+    return result.rows[0].server_version;
+  } catch (err) {
+    console.log(err);
+  } finally {
+    await clientdb.end();
+  }
 
-    const value = await mainDB(version);
-
-    console.log("value", value);
-
-    return value;
-    //return "8.0.31";
+  return test;
 }
 
 async function databaseMaxConnections() {
-    const maxConnections: QueryResult = <{ Variable_name: string; Value: string }[]>(
-        await prisma.$queryRaw`SHOW VARIABLES LIKE 'max_connections';`
-    );
+  const databaseMaxConnectionsResult = await database.query(
+    "SHOW max_connections;",
+  );
+  const databaseMaxConnectionsValue = Number(
+    databaseMaxConnectionsResult.rows[0].max_connections,
+  );
 
-    return Number(maxConnections[0].Value);
+  return databaseMaxConnectionsValue;
 }
 
 async function databaseActiveConnections() {
-    const activeConnections: QueryResult = <{ Variable_name: string; Value: string }[]>(
-        await prisma.$queryRaw`SHOW STATUS WHERE variable_name = 'Threads_connected';`
-    );
+  const databaseName = process.env.POSTGRES_DB;
+  const databaseOpenedConnectionsResult = await database.query({
+    text: "SELECT count(*)::int FROM pg_stat_activity WHERE datname = $1;",
+    values: [databaseName],
+  });
+  const databaseOpenedConnectionsValue = Number(
+    databaseOpenedConnectionsResult.rows[0].count,
+  );
 
-    return Number(activeConnections[0].Value);
+  return databaseOpenedConnectionsValue;
 }
 
-async function mainDB(query: any) {
-    try {
-        const result = await query;
-        return result;
-    } catch (err) {
-        console.log(err);
-    } finally {
-        await prisma.$disconnect();
-    }
-}
+//
+//async function mainDB(query) {
+// try {
+//   const result = await query;
+// return result;
+//} catch (err) {
+//  console.log(err);
+// } finally {
+//   await prisma.$disconnect();
+// }
+//}
 
 export default {
-    dbVersion: databaseVersion,
-    dbMaxConnections: mainDB(databaseMaxConnections),
-    dbOpenedConnections: mainDB(databaseActiveConnections),
+  // dbVersion: newDbVersion,
+  dbVersion: databaseVersion,
+  dbMaxConnections: databaseMaxConnections,
+  dbOpenedConnections: databaseActiveConnections,
 };
